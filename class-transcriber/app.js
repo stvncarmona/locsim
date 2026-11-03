@@ -311,9 +311,9 @@ $('recBtn').addEventListener('click', async () => {
   recorder.ondataavailable = (e) => { if (e.data.size) tx('recChunks', 'readwrite', (s) => s.add({ rec: recId, blob: e.data })); };
   recorder.onstop = async () => {
     clearInterval(recTimer); recStream.getTracks().forEach((t) => t.stop());
-    const id = recId; recorder = null; $('recLive').hidden = true; $('recBtn').textContent = '● Grabar clase';
+    const id = recId, mime = recorder.mimeType; recorder = null; $('recLive').hidden = true; $('recBtn').textContent = '● Grabar clase';
     await new Promise((r) => setTimeout(r, 300)); // let the last chunk land
-    await tx('recordings', 'readwrite', (s) => s.put({ id, mime: recorderMime(id), started: recStart, finished: true }));
+    await tx('recordings', 'readwrite', (s) => s.put({ id, mime, started: recStart, finished: true }));
     const file = await recordingFile(id); if (file) selectFile(file);
     refreshRecordings();
   };
@@ -322,8 +322,6 @@ $('recBtn').addEventListener('click', async () => {
   recTimer = setInterval(() => ($('recTime').textContent = fmt((Date.now() - recStart) / 1000)), 500);
   keepAwake(true);
 });
-const recMimes = {};
-function recorderMime(id) { return recMimes[id] || recorder?.mimeType || 'audio/webm'; }
 async function recordingFile(id) {
   const meta = await tx('recordings', 'readonly', (s) => s.get(id));
   const blobs = await tx('recChunks', 'readonly', (s) => s.index('rec').getAll(id));
@@ -339,7 +337,6 @@ async function refreshRecordings() {
   document.querySelectorAll('.saved-rec').forEach((n) => n.remove());
   for (const r of recs.sort((a, b) => b.started - a.started).slice(0, 5)) {
     if (r.id === recId && recorder) continue;
-    recMimes[r.id] = r.mime;
     const b = document.createElement('button'); b.type = 'button'; b.className = 'saved-rec';
     b.textContent = `Usar grabación del ${new Date(r.started).toLocaleString('es', { dateStyle: 'short', timeStyle: 'short' })}`;
     b.addEventListener('click', async () => { const f = await recordingFile(r.id); if (f) selectFile(f); else showError('Esa grabación está vacía.'); });
