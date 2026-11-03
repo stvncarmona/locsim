@@ -3,6 +3,7 @@
 Transcriptor de clases largas (2 h o más) que se ejecuta **entero en el navegador** con Whisper (Transformers.js). El audio no sale del equipo.
 
 ## Qué resuelve para clases largas
+- **Archivos de 800 MB o más** (probado con MP4 de vídeo de 840 MB / 2 h 30 min y WAV de 838 MB): el archivo no se carga en memoria; se lee por rangos.
 - **Decodificación en streaming** (Mediabunny + WebCodecs): no carga 2–3 h de audio en memoria; procesa bloques de ~2 min cortados en pausas.
 - **Reanudable**: cada bloque se guarda en IndexedDB. Si se cierra la pestaña, se vuelve a elegir el mismo archivo y se pulsa «Continuar».
 - **Grabación en directo** con el micrófono, guardada cada 10 s (sobrevive a un cierre inesperado).
