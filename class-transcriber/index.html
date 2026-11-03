@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Apuntes de Clase</title>
+<meta name="description" content="Transcribe clases largas (2 h o más) en tu navegador con Whisper. El audio nunca sale de tu equipo.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Literata:opsz,wght@7..72,400;7..72,600&family=Instrument+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one working column — setup card, progress band, then the transcript as a long reading page. */
+:root {
+  --bg: #f3f5f2; --surface: #ffffff; --ink: #18211d; --muted: #5b6a63; --line: #d9dfdb;
+  --accent: #1d5a48; --accent-ink: #ffffff; --chalk: #d9a821; --danger: #a6322a; --rec: #c2362b;
+  --display: "Literata", Georgia, serif; --body: "Instrument Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #121815; --surface: #1a2320; --ink: #e5ece8; --muted: #93a39b; --line: #2b3732;
+  --accent: #5fb898; --accent-ink: #0d1411; --chalk: #e8c04c; --danger: #e0756c; --rec: #ef6a5e; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #121815; --surface: #1a2320; --ink: #e5ece8; --muted: #93a39b; --line: #2b3732;
+  --accent: #5fb898; --accent-ink: #0d1411; --chalk: #e8c04c; --danger: #e0756c; --rec: #ef6a5e; color-scheme: dark; }
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.5 var(--body); }
+.wrap { max-width: 860px; margin: 0 auto; padding-block: 28px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+header h1 { font: 600 clamp(28px, 5vw, 38px)/1.1 var(--display); margin: 0; text-wrap: balance; letter-spacing: -0.01em; }
+header p { margin: 6px 0 0; color: var(--muted); max-width: 62ch; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 18px; display: grid; gap: 14px; min-width: 0; }
+.label { font: 500 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.drop { border: 1.5px dashed var(--line); border-radius: 8px; padding: 22px 16px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s; }
+.drop:hover, .drop.over, .drop:focus-visible { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); outline: none; }
+.drop strong { display: block; font-size: 16px; }
+.drop span { color: var(--muted); font-size: 13px; }
+.or { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 13px; }
+.or::before, .or::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.row { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.field { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; }
+select, input[type=search] { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 8px 10px; width: 100%; }
+button { font: 500 14px/1 var(--body); border-radius: 6px; padding: 10px 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.rec { color: var(--rec); border-color: color-mix(in srgb, var(--rec) 45%, var(--line)); }
+button:disabled { opacity: .5; cursor: not-allowed; }
+.hint { color: var(--muted); font-size: 13px; margin: 0; }
+.file { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; font-size: 14px; }
+.file b { overflow-wrap: anywhere; }
+.mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.pill { font: 500 12px/1 var(--body); padding: 4px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.pill.ok { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 40%, var(--line)); }
+.pill.warn { color: var(--danger); border-color: color-mix(in srgb, var(--danger) 40%, var(--line)); }
+.bar { height: 10px; background: var(--bg); border: 1px solid var(--line); border-radius: 99px; overflow: hidden; }
+.bar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, var(--accent), var(--chalk)); transition: width .4s; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 12px; }
+.stats div { display: grid; gap: 2px; }
+.stats b { font: 500 18px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.err { color: var(--danger); margin: 0; }
+.rec-live { display: flex; align-items: center; gap: 10px; }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--rec); animation: pulse 1.2s infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) { .dot { animation: none; } .bar > i { transition: none; } }
+audio { width: 100%; }
+.toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.toolbar .field { flex: 1 1 180px; }
+#transcript { font: 17px/1.7 var(--display); display: grid; gap: 2px; }
+.seg { display: grid; grid-template-columns: 64px 1fr; gap: 14px; padding: 4px 0; }
+.seg button.ts { all: unset; cursor: pointer; font: 12px/2.3 var(--mono); color: var(--muted); font-variant-numeric: tabular-nums; }
+.seg button.ts:hover, .seg button.ts:focus-visible { color: var(--accent); text-decoration: underline; }
+.seg p { margin: 0; max-width: 68ch; min-width: 0; }
+.seg.now p { background: color-mix(in srgb, var(--chalk) 22%, transparent); }
+mark { background: color-mix(in srgb, var(--chalk) 55%, transparent); color: inherit; border-radius: 2px; }
+.empty { color: var(--muted); font: 15px/1.6 var(--body); }
+.sample-tag { font: 500 11px/1 var(--body); letter-spacing: .08em; text-transform: uppercase; color: var(--chalk); }
+details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+details ul { margin: 8px 0 0; padding-left: 18px; color: var(--muted); font-size: 13px; display: grid; gap: 4px; }
+@media (max-width: 520px) { .seg { grid-template-columns: 1fr; gap: 0; } #transcript { font-size: 16px; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Apuntes de Clase</h1>
+    <p>Transcribe clases de 2, 3 o más horas directamente en tu navegador. El audio no se sube a ningún servidor y el progreso se guarda: si cierras la pestaña, retomas donde lo dejaste.</p>
+  </header>
+
+  <section class="card" aria-labelledby="src-h">
+    <span class="label" id="src-h">1 · Audio de la clase</span>
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Elegir archivo de audio o vídeo">
+      <strong>Arrastra la grabación aquí o haz clic para elegirla</strong>
+      <span>MP3, M4A, WAV, OGG, OPUS, WEBM, MP4, MOV, FLAC · sin límite de duración</span>
+      <input type="file" id="file" accept="audio/*,video/*,.m4a,.mp3,.wav,.ogg,.opus,.webm,.mp4,.mov,.flac,.aac" hidden>
+    </div>
+    <div class="or">o graba la clase en directo</div>
+    <div class="row">
+      <button class="rec" id="recBtn" type="button">● Grabar clase</button>
+      <div class="rec-live" id="recLive" hidden><span class="dot"></span><span class="mono" id="recTime">00:00:00</span><span class="hint">Grabando · se guarda cada 10 s</span></div>
+    </div>
+    <div class="file" id="fileInfo" hidden></div>
+  </section>
+
+  <section class="card" aria-labelledby="cfg-h">
+    <span class="label" id="cfg-h">2 · Ajustes</span>
+    <div class="row">
+      <div class="field">
+        <label class="label" for="model">Modelo</label>
+        <select id="model"></select>
+      </div>
+      <div class="field">
+        <label class="label" for="lang">Idioma de la clase</label>
+        <select id="lang">
+          <option value="spanish" selected>Español</option>
+          <option value="english">Inglés</option>
+          <option value="portuguese">Portugués</option>
+          <option value="french">Francés</option>
+          <option value="italian">Italiano</option>
+          <option value="german">Alemán</option>
+          <option value="catalan">Catalán</option>
+          <option value="">Detectar automáticamente</option>
+        </select>
+      </div>
+    </div>
+    <div class="row"><span class="pill" id="devicePill">Comprobando aceleración…</span><p class="hint" id="modelHint"></p></div>
+    <div class="row">
+      <button class="primary" id="startBtn" type="button" disabled>Transcribir</button>
+      <button id="stopBtn" type="button" hidden>Pausar</button>
+      <button id="resetBtn" type="button" hidden>Empezar de cero</button>
+    </div>
+    <p class="err" id="error" hidden></p>
+  </section>
+
+  <section class="card" id="progressCard" aria-labelledby="prog-h" hidden>
+    <span class="label" id="prog-h">3 · Progreso</span>
+    <div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" id="bar"><i id="barFill"></i></div>
+    <div class="stats">
+      <div><span class="label">Estado</span><b id="stState" style="font-family:var(--body)">—</b></div>
+      <div><span class="label">Procesado</span><b id="stDone">—</b></div>
+      <div><span class="label">Velocidad</span><b id="stSpeed">—</b></div>
+      <div><span class="label">Tiempo restante</span><b id="stEta">—</b></div>
+    </div>
+    <p class="hint">Mantén esta pestaña abierta (puede estar en segundo plano). Si se interrumpe, vuelve a elegir el mismo archivo y pulsa «Continuar».</p>
+  </section>
+
+  <section class="card" aria-labelledby="tr-h">
+    <div class="toolbar">
+      <span class="label" id="tr-h">Transcripción</span>
+      <span class="sample-tag" id="sampleTag">Ejemplo</span>
+    </div>
+    <audio id="player" controls hidden></audio>
+    <div class="toolbar">
+      <div class="field"><label class="label" for="search">Buscar en la clase</label><input type="search" id="search" placeholder="p. ej. examen, fórmula, entrega"></div>
+      <button type="button" id="copyBtn">Copiar texto</button>
+      <button type="button" data-export="txt">TXT</button>
+      <button type="button" data-export="md">Markdown</button>
+      <button type="button" data-export="srt">SRT</button>
+      <button type="button" data-export="vtt">VTT</button>
+    </div>
+    <div id="transcript" aria-live="polite"></div>
+  </section>
+
+  <details class="card">
+    <summary>Cómo funciona y límites</summary>
+    <ul>
+      <li>Usa Whisper (OpenAI) ejecutado localmente con Transformers.js. El modelo se descarga una vez y queda en caché.</li>
+      <li>El audio se decodifica en streaming por bloques de 2 minutos, cortando en pausas, así que una clase de 3 h no satura la memoria.</li>
+      <li>Con GPU (WebGPU, Chrome/Edge recientes) es varias veces más rápido que el tiempo real. Sin GPU, el modelo «Rápido» va aproximadamente a tiempo real o algo más lento.</li>
+      <li>Cada bloque transcrito se guarda en este navegador (IndexedDB). Las grabaciones hechas aquí también.</li>
+      <li>Whisper puede inventar frases en silencios largos; se filtran las más típicas, pero revisa los fragmentos dudosos con el reproductor.</li>
+    </ul>
+  </details>
+</div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
